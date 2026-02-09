@@ -8,6 +8,11 @@ Cliente WireGuard que expone proxies HTTP y SOCKS5 dentro del mismo contenedor. 
 - Puertos y autenticación configurables por variables de entorno.
 - Señales manejadas por `tini` para apagado limpio.
 
+## Imagen en Docker Hub
+La imagen publicada en Docker Hub está disponible como:
+
+`jcarencibia9309/wg-client-proxy`
+
 ## Requisitos
 - Dispositivo `/dev/net/tun` dentro del contenedor.
 - Capacidad `NET_ADMIN`.
@@ -27,7 +32,7 @@ docker build -t wireguard-proxy:latest .
 ```
 
 ## Ejecución (Docker CLI)
-Sin autenticación:
+Sin autenticación (usando imagen pública):
 ```bash
 docker run -d --name wg-proxy \
   --cap-add=NET_ADMIN \
@@ -35,10 +40,10 @@ docker run -d --name wg-proxy \
   -p 3128:3128 -p 1080:1080 \
   -v %CD%/config/wg0.conf:/config/wg0.conf:ro \
   -e TZ=UTC \
-  wireguard-proxy:latest
+  jcarencibia9309/wg-client-proxy:latest
 ```
 
-Con autenticación:
+Con autenticación (usando imagen pública):
 ```bash
 docker run -d --name wg-proxy-auth \
   --cap-add=NET_ADMIN \
@@ -47,14 +52,14 @@ docker run -d --name wg-proxy-auth \
   -v %CD%/config/wg0.conf:/config/wg0.conf:ro \
   -e PROXY_USER=miusuario -e PROXY_PASSWORD=secreto \
   -e HTTP_PROXY_PORT=3128 -e SOCKS5_PROXY_PORT=1080 \
-  wireguard-proxy:latest
+  jcarencibia9309/wg-client-proxy:latest
 ```
 
 ## docker-compose.yml de ejemplo
 ```yaml
 services:
   wg-proxy:
-    image: wireguard-proxy:latest
+    image: jcarencibia9309/wg-client-proxy:latest
     cap_add:
       - NET_ADMIN
     devices:
