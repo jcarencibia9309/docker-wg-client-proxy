@@ -52,19 +52,23 @@ fi
 echo "[entrypoint] Starting WireGuard using $WG_CONFIG_PATH"
 wg-quick up "$WG_CONFIG_PATH"
 
-# Excepciones de enrutamiento para permitir acceso externo a los puertos publicados
-# Evita que respuestas a clientes locales salgan por el túnel (asimetría)
-echo "[entrypoint] Adding routing exceptions for local networks"
-# Bypass para loopback y redes RFC1918 hacia la tabla main
-ip -4 rule add to 127.0.0.0/8 lookup main priority 100 || true
-ip -4 rule add to 10.0.0.0/8 lookup main priority 100 || true
-ip -4 rule add to 172.16.0.0/12 lookup main priority 100 || true
-ip -4 rule add to 192.168.0.0/16 lookup main priority 100 || true
+# Excepción de enrutamiento basada en origen para permitir acceso externo a los puertos publicados
+# Asegura que respuestas originadas con IP de eth0 usen la tabla main (no el túnel)
+echo "[entrypoint] Adding source-based routing exception for eth0"
+ETH0_IP=$(ip -4 addr show dev eth0 | awk '/inet /{print $2; exit}' | cut -d/ -f1) || true
+if [[ -n "${ETH0_IP:-}" ]]; then
+  ip -4 rule add from "$ETH0_IP/32" lookup main priority 100 || true
+fi
 
-# Bypass específico para la subred de eth0 del contenedor (puente docker)
-ETH0_CIDR=$(ip -4 addr show dev eth0 | awk '/inet /{print $2; exit}') || true
-if [[ -n "${ETH0_CIDR:-}" ]]; then
-  ip -4 rule add to "$ETH0_CIDR" lookup main priority 100 || true
+# Asegura que las consultas DNS vayan por el túnel si los DNS están dentro del peer
+if [[ -f /etc/resolv.conf ]]; then
+  while read -r ns; do
+    NS_IP=$(echo "$ns" | awk '{print $2}')
+    if [[ -n "$NS_IP" ]]; then
+      # Regla de mayor prioridad para forzar DNS por tabla 51820
+      ip -4 rule add to "$NS_IP/32" lookup 51820 priority 50 || true
+    fi
+  done < <(grep -E '^nameserver[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' /etc/resolv.conf || true)
 fi
 
 # Tinyproxy config
