@@ -76,50 +76,6 @@ services:
 
 ---
 
-# Publicación manual en Docker Hub con GitHub Actions
-Este repositorio incluye un workflow manual para construir y publicar la imagen multi-arquitectura en Docker Hub.
-
-Ruta del workflow: `.github/workflows/docker-publish.yml`
-
-## Secrets requeridos en GitHub
-Crea estos secrets en tu repositorio (Settings → Secrets and variables → Actions → New repository secret):
-- `DOCKERHUB_USERNAME`: tu usuario de Docker Hub.
-- `DOCKERHUB_TOKEN`: un Access Token de Docker Hub con permisos para publicar en tu repositorio de imágenes.
-
-Cómo crear el token en Docker Hub:
-1. Ve a hub.docker.com → Account Settings → Security → New Access Token.
-2. Asigna un nombre descriptivo (por ejemplo, `github-actions`) y guarda el token generado.
-3. Copia el token una sola vez y guárdalo como `DOCKERHUB_TOKEN` en GitHub.
-
-## Disparar el workflow manualmente
-1. Ve a la pestaña "Actions" de tu repo en GitHub.
-2. Selecciona "Manual Docker Publish".
-3. Pulsa "Run workflow" y rellena los inputs:
-   - `image_name` (opcional): Nombre completo de la imagen a publicar, por ejemplo `usuario/wireguard-proxy`.
-     - Si lo dejas vacío, se usará `DOCKERHUB_USERNAME/<nombre-repo>` automáticamente.
-   - `tag` (obligatorio): Tag a publicar, por ejemplo `latest` o `v1.0.0`.
-   - `platforms` (obligatorio): Por defecto `linux/amd64,linux/arm64`.
-
-El workflow:
-- Hace login en Docker Hub con los secrets.
-- Construye la imagen con Buildx para las plataformas indicadas.
-- Publica la imagen con las etiquetas proporcionadas y una etiqueta adicional basada en SHA del commit (`sha-<hash>`).
-- Usa cache de construcción en el propio registro para acelerar builds posteriores.
-
-## Ejemplos de publicación
-- Publicar con el nombre por defecto y tag `latest`:
-  - `image_name`: (vacío)
-  - `tag`: `latest`
-- Publicar con nombre explícito y tag versionado:
-  - `image_name`: `miusuario/wireguard-proxy`
-  - `tag`: `v1.0.0`
-
-## Notas
-- Asegúrate de que el repositorio en Docker Hub exista o que tu usuario tenga permisos para crearlo automáticamente al primer push.
-- Si quieres añadir más plataformas, comprueba que las dependencias tengan soporte en esas arquitecturas.
-
----
-
 # Configuración de WireGuard
 Monta tu `wg0.conf` dentro del contenedor en la ruta indicada por `WG_CONFIG_PATH` (por defecto `/config/wg0.conf`).
 

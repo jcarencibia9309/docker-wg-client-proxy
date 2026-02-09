@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_name:
-        description: "Nombre completo de la imagen en Docker Hub (e.g. usuario/imagen). Si se deja vacío, usa DOCKERHUB_USERNAME/<repo>"
+        description: "Nombre completo de la imagen en Docker Hub (e.g. jcarencibia9309/wg-client-proxy). Si se deja vacío, usa DOCKERHUB_USERNAME/wg-client-proxy"
         required: false
         default: ""
       tag:
@@ -21,7 +21,7 @@ permissions:
   packages: write
 
 env:
-  DEFAULT_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
+  DEFAULT_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/wg-client-proxy
 
 jobs:
   build-and-push:
