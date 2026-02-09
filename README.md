@@ -1,15 +1,15 @@
-# wireguard-proxy
+# WireGuard Proxy
 
-Cliente WireGuard que expone proxies HTTP y SOCKS5 dentro del mismo contenedor. La configuración de WireGuard se monta como volumen y la autenticación de los proxies es opcional vía variables de entorno.
+A WireGuard client that exposes HTTP and SOCKS5 proxies within the same container. The WireGuard configuration is mounted as a volume, and proxy authentication is optional via environment variables.
 
-## Características
-- Levanta WireGuard como cliente usando `wg-quick` y un fichero de config montado (`wg0.conf`).
-- Proxy HTTP con Tinyproxy y proxy SOCKS5 con Microsocks.
-- Puertos y autenticación configurables por variables de entorno.
-- Señales manejadas por `tini` para apagado limpio.
+## Features
+- Runs WireGuard as a client using `wg-quick` and a mounted configuration file (`wg0.conf`).
+- HTTP proxy with Tinyproxy and SOCKS5 proxy with Microsocks.
+- Configurable ports and authentication via environment variables.
+- Clean shutdown handling via `tini` signals.
 
-## Imagen en Docker Hub
-La imagen publicada en Docker Hub está disponible como:
+## Docker Hub Image
+The published image on Docker Hub is available as:
 
 https://hub.docker.com/r/jcarencibia9309/wg-client-proxy
 
@@ -17,49 +17,41 @@ https://hub.docker.com/r/jcarencibia9309/wg-client-proxy
 docker pull jcarencibia9309/wg-client-proxy
 ```
 
-## Requisitos
-- Dispositivo `/dev/net/tun` dentro del contenedor.
-- Capacidad `NET_ADMIN`.
-- Un fichero de configuración válido de WireGuard (por ejemplo, `wg0.conf`).
+## GitHub Repository
+Source code and further details are available on GitHub:  
+https://github.com/jcarencibia9309/docker-wg-client-proxy
 
-## Variables de entorno
-- `WG_CONFIG_PATH` (por defecto `/config/wg0.conf`): ruta al fichero de configuración de WireGuard.
-- `HTTP_PROXY_PORT` (por defecto `3128`): puerto de Tinyproxy.
-- `SOCKS5_PROXY_PORT` (por defecto `1080`): puerto de Microsocks.
-- `PROXY_USER`, `PROXY_PASSWORD` (opcionales): credenciales para ambos proxies. Si no se definen, no hay autenticación.
-- `TZ` (por defecto `UTC`): zona horaria del contenedor.
+## Requirements
+- `/dev/net/tun` device inside the container.
+- `NET_ADMIN` capability.
+- A valid WireGuard configuration file (e.g., `wg0.conf`).
 
-## Construcción de la imagen
+## Environment Variables
+- `WG_CONFIG_PATH` (default `/config/wg0.conf`): path to the WireGuard configuration file.
+- `HTTP_PROXY_PORT` (default `3128`): Tinyproxy port.
+- `SOCKS5_PROXY_PORT` (default `1080`): Microsocks port.
+- `PROXY_USER`, `PROXY_PASSWORD` (optional): credentials for both proxies. If not defined, authentication is disabled.
+- `TZ` (default `UTC`): container timezone.
+
+## Running (Docker CLI)
 ```bash
-# En la raíz del repo
-docker build -t wireguard-proxy:latest .
-```
-
-## Ejecución (Docker CLI)
-Sin autenticación (usando imagen pública):
-```bash
-docker run -d --name wg-proxy \
-  --cap-add=NET_ADMIN \
-  --device=/dev/net/tun \
-  -p 3128:3128 -p 1080:1080 \
-  -v %CD%/config/wg0.conf:/config/wg0.conf:ro \
-  -e TZ=UTC \
+docker run -d \
+  --name wg-proxy \
+  --cap-add NET_ADMIN \
+  --device /dev/net/tun:/dev/net/tun \
+  --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+  --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+  --sysctl net.ipv6.conf.default.disable_ipv6=0 \
+  --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+  -p 3128:3128 \
+  -p 1080:1080 \
+  -e TZ="UTC" \
+  -v ./config/wg0.conf:/config/wg0.conf:ro \
+  --restart unless-stopped \
   jcarencibia9309/wg-client-proxy:latest
 ```
 
-Con autenticación (usando imagen pública):
-```bash
-docker run -d --name wg-proxy-auth \
-  --cap-add=NET_ADMIN \
-  --device=/dev/net/tun \
-  -p 8080:3128 -p 1081:1080 \
-  -v %CD%/config/wg0.conf:/config/wg0.conf:ro \
-  -e PROXY_USER=miusuario -e PROXY_PASSWORD=secreto \
-  -e HTTP_PROXY_PORT=3128 -e SOCKS5_PROXY_PORT=1080 \
-  jcarencibia9309/wg-client-proxy:latest
-```
-
-## docker-compose.yml de ejemplo
+## Example docker-compose.yml
 ```yaml
 services:
   wg-proxy:
@@ -85,28 +77,19 @@ services:
 
 ---
 
-# Configuración de WireGuard
-Monta tu `wg0.conf` dentro del contenedor en la ruta indicada por `WG_CONFIG_PATH` (por defecto `/config/wg0.conf`).
+# WireGuard Configuration
+Mount your `wg0.conf` inside the container at the path specified by `WG_CONFIG_PATH` (default `/config/wg0.conf`).
 
-Ejemplo mínimo de `wg0.conf` (referencia):
+Minimal example `wg0.conf` (reference):
 ```ini
 [Interface]
-PrivateKey = <clave-privada>
+PrivateKey = <private-key>
 Address = 10.0.0.2/32
 DNS = 1.1.1.1
 
 [Peer]
-PublicKey = <clave-publica-peer>
-Endpoint = vpn.ejemplo.com:51820
+PublicKey = <peer-public-key>
+Endpoint = vpn.example.com:51820
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 ```
-
-Ajusta las direcciones, claves y endpoint a tu infraestructura.
-
----
-
-# Seguridad
-- Si habilitas autenticación, las credenciales se aplican a ambos proxies (HTTP y SOCKS5).
-- Para un "killswitch" (evitar fugas si cae el túnel), se pueden añadir reglas `iptables` opcionales. Abre un issue si deseas que se integre como variable de entorno.
-- Para DNS a través del túnel, usa un `DNS` accesible por el peer o ajusta resolv.conf dentro del contenedor.
