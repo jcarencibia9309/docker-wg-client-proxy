@@ -11,7 +11,11 @@ Cliente WireGuard que expone proxies HTTP y SOCKS5 dentro del mismo contenedor. 
 ## Imagen en Docker Hub
 La imagen publicada en Docker Hub está disponible como:
 
-`jcarencibia9309/wg-client-proxy`
+https://hub.docker.com/r/jcarencibia9309/wg-client-proxy
+
+```bash
+docker pull jcarencibia9309/wg-client-proxy
+```
 
 ## Requisitos
 - Dispositivo `/dev/net/tun` dentro del contenedor.
