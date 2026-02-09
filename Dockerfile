@@ -1,16 +1,18 @@
 FROM alpine:3.19
 
 # Instala herramientas necesarias: WireGuard, proxies y utilidades
-RUN apk add --no-cache \
-    wireguard-tools \
-    iptables \
-    iproute2 \
-    bash \
-    tini \
-    tinyproxy \
-    microsocks \
-    tzdata \
-    ca-certificates
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
+    && echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && apk add --no-cache \
+      wireguard-tools \
+      iptables \
+      iproute2 \
+      bash \
+      tini \
+      tinyproxy \
+      microsocks \
+      tzdata \
+      ca-certificates
 
 # Directorio para configuración externa del túnel
 ENV WG_CONFIG_PATH=/config/wg0.conf \
