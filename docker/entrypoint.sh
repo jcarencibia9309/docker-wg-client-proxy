@@ -37,6 +37,17 @@ if [[ -n "$TZ" && -f "/usr/share/zoneinfo/$TZ" ]]; then
   ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone || true
 fi
 
+# Asegura que IPv6 esté habilitado si el config incluye rutas IPv6 (::/0, etc.)
+if [[ -f /proc/sys/net/ipv6/conf/all/disable_ipv6 ]]; then
+  if [[ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" != "0" ]]; then
+    echo "[entrypoint] Enabling IPv6 in container namespace"
+    sysctl -w net.ipv6.conf.all.disable_ipv6=0 || true
+    sysctl -w net.ipv6.conf.default.disable_ipv6=0 || true
+    # Algunas distros requieren también habilitar en lo y futuras ifaces
+    sysctl -w net.ipv6.conf.lo.disable_ipv6=0 || true
+  fi
+fi
+
 # Levanta WireGuard
 echo "[entrypoint] Starting WireGuard using $WG_CONFIG_PATH"
 wg-quick up "$WG_CONFIG_PATH"
