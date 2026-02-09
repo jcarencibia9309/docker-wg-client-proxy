@@ -52,6 +52,21 @@ fi
 echo "[entrypoint] Starting WireGuard using $WG_CONFIG_PATH"
 wg-quick up "$WG_CONFIG_PATH"
 
+# Excepciones de enrutamiento para permitir acceso externo a los puertos publicados
+# Evita que respuestas a clientes locales salgan por el túnel (asimetría)
+echo "[entrypoint] Adding routing exceptions for local networks"
+# Bypass para loopback y redes RFC1918 hacia la tabla main
+ip -4 rule add to 127.0.0.0/8 lookup main priority 100 || true
+ip -4 rule add to 10.0.0.0/8 lookup main priority 100 || true
+ip -4 rule add to 172.16.0.0/12 lookup main priority 100 || true
+ip -4 rule add to 192.168.0.0/16 lookup main priority 100 || true
+
+# Bypass específico para la subred de eth0 del contenedor (puente docker)
+ETH0_CIDR=$(ip -4 addr show dev eth0 | awk '/inet /{print $2; exit}') || true
+if [[ -n "${ETH0_CIDR:-}" ]]; then
+  ip -4 rule add to "$ETH0_CIDR" lookup main priority 100 || true
+fi
+
 # Tinyproxy config
 TINYCONF=/etc/tinyproxy/tinyproxy.conf
 mkdir -p /run/tinyproxy
