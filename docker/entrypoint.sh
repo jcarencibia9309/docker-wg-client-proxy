@@ -7,13 +7,18 @@ SOCKS5_PROXY_PORT=${SOCKS5_PROXY_PORT:-1080}
 PROXY_USER=${PROXY_USER:-}
 PROXY_PASSWORD=${PROXY_PASSWORD:-}
 TZ=${TZ:-UTC}
+UPSTREAM_PROXY_TYPE=${UPSTREAM_PROXY_TYPE:-}
+UPSTREAM_PROXY_HOST=${UPSTREAM_PROXY_HOST:-}
+UPSTREAM_PROXY_PORT=${UPSTREAM_PROXY_PORT:-}
+UPSTREAM_PROXY_USER=${UPSTREAM_PROXY_USER:-}
+UPSTREAM_PROXY_PASSWORD=${UPSTREAM_PROXY_PASSWORD:-}
 
 cleanup() {
   echo "[entrypoint] Caught signal, shutting down..."
-  # Intenta parar los servicios ordenadamente
   if pidof microsocks >/dev/null 2>&1; then killall microsocks || true; fi
   if pidof tinyproxy >/dev/null 2>&1; then killall tinyproxy || true; fi
-  # Baja el túnel si está levantado
+  if pidof redsocks >/dev/null 2>&1; then killall redsocks || true; fi
+  if pidof proxyguard >/dev/null 2>&1; then killall proxyguard || true; fi
   if ip link show wg0 >/dev/null 2>&1; then
     echo "[entrypoint] Bringing down WireGuard (wg-quick down)"
     wg-quick down "$WG_CONFIG_PATH" || true
@@ -45,6 +50,67 @@ if [[ -f /proc/sys/net/ipv6/conf/all/disable_ipv6 ]]; then
     sysctl -w net.ipv6.conf.default.disable_ipv6=0 || true
     # Algunas distros requieren también habilitar en lo y futuras ifaces
     sysctl -w net.ipv6.conf.lo.disable_ipv6=0 || true
+  fi
+fi
+
+# Proxy upstream opcional para la conexión WireGuard
+if [[ -n "$UPSTREAM_PROXY_TYPE" && -n "$UPSTREAM_PROXY_HOST" && -n "$UPSTREAM_PROXY_PORT" ]]; then
+  echo "[entrypoint] Upstream proxy configurado: type=$UPSTREAM_PROXY_TYPE host=$UPSTREAM_PROXY_HOST port=$UPSTREAM_PROXY_PORT"
+
+  # Ruta directa hacia el proxy upstream para evitar bucle de enrutamiento
+  GW=$(ip -4 route show default | awk '{print $3; exit}')
+  if [[ -n "$GW" ]]; then
+    ip -4 route add "$UPSTREAM_PROXY_HOST/32" via "$GW" dev eth0 || true
+    echo "[entrypoint] Ruta directa añadida: $UPSTREAM_PROXY_HOST via $GW"
+  fi
+
+  # Extrae endpoint WireGuard del config
+  WG_ENDPOINT_HOST=$(grep -E '^\s*Endpoint\s*=' "$WG_CONFIG_PATH" | head -1 | sed 's/.*=\s*//' | sed 's/:[^:]*$//' | tr -d ' ')
+  WG_ENDPOINT_PORT=$(grep -E '^\s*Endpoint\s*=' "$WG_CONFIG_PATH" | head -1 | awk -F: '{print $NF}' | tr -d ' ')
+
+  if [[ -z "$WG_ENDPOINT_HOST" || -z "$WG_ENDPOINT_PORT" ]]; then
+    echo "[entrypoint][ERROR] No se pudo extraer el Endpoint del config WireGuard. Verifica que exista la línea 'Endpoint = host:port'"
+    exit 1
+  fi
+
+  if [[ "$UPSTREAM_PROXY_TYPE" == "socks5" ]]; then
+    REDSOCKS_PORT=12345
+    REDSOCKS_AUTH=""
+    if [[ -n "$UPSTREAM_PROXY_USER" && -n "$UPSTREAM_PROXY_PASSWORD" ]]; then
+      REDSOCKS_AUTH="login = \"$UPSTREAM_PROXY_USER\"; password = \"$UPSTREAM_PROXY_PASSWORD\";"
+    fi
+    cat > /etc/redsocks.conf <<RCEOF
+base { log_debug = off; log_info = on; daemon = off; redirector = iptables; }
+redsocks {
+  local_ip = 127.0.0.1; local_port = $REDSOCKS_PORT;
+  ip = $UPSTREAM_PROXY_HOST; port = $UPSTREAM_PROXY_PORT; type = socks5;
+  $REDSOCKS_AUTH
+}
+RCEOF
+    echo "[entrypoint] Iniciando redsocks en 127.0.0.1:$REDSOCKS_PORT"
+    redsocks -c /etc/redsocks.conf &
+    sleep 1
+    iptables -t nat -A OUTPUT -p udp -d "$WG_ENDPOINT_HOST" --dport "$WG_ENDPOINT_PORT" -j REDIRECT --to-port "$REDSOCKS_PORT"
+    echo "[entrypoint] Regla iptables: UDP $WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT → 127.0.0.1:$REDSOCKS_PORT"
+
+  elif [[ "$UPSTREAM_PROXY_TYPE" == "http" ]]; then
+    PG_LOCAL_PORT=51821
+    PG_FLAGS=(--listen "127.0.0.1:$PG_LOCAL_PORT" --proxy "http://$UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT" --endpoint "$WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT")
+    if [[ -n "$UPSTREAM_PROXY_USER" && -n "$UPSTREAM_PROXY_PASSWORD" ]]; then
+      PG_FLAGS+=(--username "$UPSTREAM_PROXY_USER" --password "$UPSTREAM_PROXY_PASSWORD")
+    fi
+    echo "[entrypoint] Iniciando proxyguard en 127.0.0.1:$PG_LOCAL_PORT"
+    proxyguard "${PG_FLAGS[@]}" &
+    sleep 1
+    # Redirige el endpoint WireGuard al listener local de proxyguard
+    TMPCONF=$(mktemp /tmp/wg0-proxied.XXXXXX.conf)
+    sed "s|Endpoint\s*=.*|Endpoint = 127.0.0.1:$PG_LOCAL_PORT|" "$WG_CONFIG_PATH" > "$TMPCONF"
+    WG_CONFIG_PATH="$TMPCONF"
+    echo "[entrypoint] Config WireGuard modificado: Endpoint → 127.0.0.1:$PG_LOCAL_PORT"
+
+  else
+    echo "[entrypoint][ERROR] UPSTREAM_PROXY_TYPE='$UPSTREAM_PROXY_TYPE' no es válido. Usa 'socks5' o 'http'."
+    exit 1
   fi
 fi
 

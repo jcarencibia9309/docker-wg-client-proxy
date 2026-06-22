@@ -11,8 +11,16 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/reposi
       tini \
       tinyproxy \
       microsocks \
+      redsocks \
       tzdata \
       ca-certificates
+
+# Compila proxyguard (UDP-over-HTTP CONNECT para proxy upstream de tipo HTTP)
+RUN apk add --no-cache go git \
+    && git clone --depth=1 https://codeberg.org/eduVPN/proxyguard.git /tmp/proxyguard \
+    && cd /tmp/proxyguard && go build -o /usr/local/bin/proxyguard ./cmd/proxyguard-client \
+    && rm -rf /tmp/proxyguard /root/go \
+    && apk del go git
 
 # Directorio para configuración externa del túnel
 ENV WG_CONFIG_PATH=/config/wg0.conf \
@@ -20,7 +28,12 @@ ENV WG_CONFIG_PATH=/config/wg0.conf \
     SOCKS5_PROXY_PORT=1080 \
     PROXY_USER= \
     PROXY_PASSWORD= \
-    TZ=UTC
+    TZ=UTC \
+    UPSTREAM_PROXY_TYPE= \
+    UPSTREAM_PROXY_HOST= \
+    UPSTREAM_PROXY_PORT= \
+    UPSTREAM_PROXY_USER= \
+    UPSTREAM_PROXY_PASSWORD=
 
 # Crea estructuras mínimas
 RUN mkdir -p /config /run/tinyproxy /var/run \
