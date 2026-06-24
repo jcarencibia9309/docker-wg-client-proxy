@@ -15,8 +15,8 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/reposi
       ca-certificates \
       curl
 
-# Instala gost (forwarder UDP local → SOCKS5/HTTP upstream)
-ARG GOST_VERSION=2.12.0
+# Instala gost v3 (forwarder UDP local → SOCKS5/HTTP upstream; mejor soporte UDP ASSOCIATE)
+ARG GOST_VERSION=3.2.6
 RUN ARCH=$(uname -m) \
     && case "$ARCH" in \
          x86_64)  GOST_ARCH=amd64 ;; \
@@ -24,7 +24,7 @@ RUN ARCH=$(uname -m) \
          armv7l)  GOST_ARCH=armv7 ;; \
          *) echo "Arquitectura no soportada: $ARCH" && exit 1 ;; \
        esac \
-    && curl -fsSL -o /tmp/gost.tar.gz "https://github.com/ginuerzh/gost/releases/download/v${GOST_VERSION}/gost_${GOST_VERSION}_linux_${GOST_ARCH}.tar.gz" \
+    && curl -fsSL -o /tmp/gost.tar.gz "https://github.com/go-gost/gost/releases/download/v${GOST_VERSION}/gost_${GOST_VERSION}_linux_${GOST_ARCH}.tar.gz" \
     && tar -xzf /tmp/gost.tar.gz -C /tmp \
     && mv /tmp/gost /usr/local/bin/gost \
     && chmod +x /usr/local/bin/gost \
