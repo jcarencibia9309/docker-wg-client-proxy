@@ -82,7 +82,15 @@ if [[ -n "$UPSTREAM_PROXY_TYPE" && -n "$UPSTREAM_PROXY_HOST" && -n "$UPSTREAM_PR
       GOST_UPSTREAM="socks5://$UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT"
     fi
     echo "[entrypoint] Iniciando gost: UDP 127.0.0.1:$GOST_LOCAL_PORT → SOCKS5 $UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT → $WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT"
-    gost -L="udp://:$GOST_LOCAL_PORT/$WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT" -F="$GOST_UPSTREAM" &
+    # Verifica conectividad TCP al SOCKS5 upstream (puerto control)
+    if command -v nc >/dev/null 2>&1; then
+      if nc -z -w 3 "$UPSTREAM_PROXY_HOST" "$UPSTREAM_PROXY_PORT" 2>/dev/null; then
+        echo "[entrypoint] TCP $UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT alcanzable"
+      else
+        echo "[entrypoint][WARN] TCP $UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT NO alcanzable"
+      fi
+    fi
+    gost -L="udp://:$GOST_LOCAL_PORT/$WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT" -F="$GOST_UPSTREAM" -D &
     sleep 1
     # Apunta el Endpoint de WireGuard al listener UDP local de gost
     TMPDIR_WG=$(mktemp -d -t wg-proxied.XXXXXX)

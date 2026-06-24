@@ -13,7 +13,8 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/reposi
       microsocks \
       tzdata \
       ca-certificates \
-      curl
+      curl \
+      netcat-openbsd
 
 # Instala gost v3 (forwarder UDP local → SOCKS5/HTTP upstream; mejor soporte UDP ASSOCIATE)
 ARG GOST_VERSION=3.2.6
