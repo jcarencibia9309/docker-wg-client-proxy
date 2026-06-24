@@ -65,8 +65,8 @@ if [[ -n "$UPSTREAM_PROXY_TYPE" && -n "$UPSTREAM_PROXY_HOST" && -n "$UPSTREAM_PR
   fi
 
   # Extrae endpoint WireGuard del config
-  WG_ENDPOINT_HOST=$(grep -E '^\s*Endpoint\s*=' "$WG_CONFIG_PATH" | head -1 | sed 's/.*=\s*//' | sed 's/:[^:]*$//' | tr -d ' ')
-  WG_ENDPOINT_PORT=$(grep -E '^\s*Endpoint\s*=' "$WG_CONFIG_PATH" | head -1 | awk -F: '{print $NF}' | tr -d ' ')
+  WG_ENDPOINT_HOST=$(grep -E '^\s*Endpoint\s*=' "$WG_CONFIG_PATH" | head -1 | sed 's/.*=\s*//' | sed 's/:[^:]*$//' | tr -d ' \r\n')
+  WG_ENDPOINT_PORT=$(grep -E '^\s*Endpoint\s*=' "$WG_CONFIG_PATH" | head -1 | awk -F: '{print $NF}' | tr -d ' \r\n')
 
   if [[ -z "$WG_ENDPOINT_HOST" || -z "$WG_ENDPOINT_PORT" ]]; then
     echo "[entrypoint][ERROR] No se pudo extraer el Endpoint del config WireGuard. Verifica que exista la línea 'Endpoint = host:port'"
