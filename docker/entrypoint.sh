@@ -85,7 +85,9 @@ if [[ -n "$UPSTREAM_PROXY_TYPE" && -n "$UPSTREAM_PROXY_HOST" && -n "$UPSTREAM_PR
     gost -L="udp://:$GOST_LOCAL_PORT/$WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT" -F="$GOST_UPSTREAM" &
     sleep 1
     # Apunta el Endpoint de WireGuard al listener UDP local de gost
-    TMPCONF=$(mktemp /tmp/wg0-proxied.XXXXXX.conf)
+    TMPCONF=$(mktemp -t wg0-proxied.XXXXXX)
+    mv "$TMPCONF" "${TMPCONF}.conf"
+    TMPCONF="${TMPCONF}.conf"
     sed "s|Endpoint\s*=.*|Endpoint = 127.0.0.1:$GOST_LOCAL_PORT|" "$WG_CONFIG_PATH" > "$TMPCONF"
     WG_CONFIG_PATH="$TMPCONF"
     echo "[entrypoint] Config WireGuard modificado: Endpoint → 127.0.0.1:$GOST_LOCAL_PORT"
@@ -100,7 +102,9 @@ if [[ -n "$UPSTREAM_PROXY_TYPE" && -n "$UPSTREAM_PROXY_HOST" && -n "$UPSTREAM_PR
     proxyguard "${PG_FLAGS[@]}" &
     sleep 1
     # Redirige el endpoint WireGuard al listener local de proxyguard
-    TMPCONF=$(mktemp /tmp/wg0-proxied.XXXXXX.conf)
+    TMPCONF=$(mktemp -t wg0-proxied.XXXXXX)
+    mv "$TMPCONF" "${TMPCONF}.conf"
+    TMPCONF="${TMPCONF}.conf"
     sed "s|Endpoint\s*=.*|Endpoint = 127.0.0.1:$PG_LOCAL_PORT|" "$WG_CONFIG_PATH" > "$TMPCONF"
     WG_CONFIG_PATH="$TMPCONF"
     echo "[entrypoint] Config WireGuard modificado: Endpoint → 127.0.0.1:$PG_LOCAL_PORT"
