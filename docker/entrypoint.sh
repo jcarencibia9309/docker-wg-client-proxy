@@ -17,7 +17,7 @@ cleanup() {
   echo "[entrypoint] Caught signal, shutting down..."
   if pidof microsocks >/dev/null 2>&1; then killall microsocks || true; fi
   if pidof tinyproxy >/dev/null 2>&1; then killall tinyproxy || true; fi
-  if pidof redsocks >/dev/null 2>&1; then killall redsocks || true; fi
+  if pidof gost >/dev/null 2>&1; then killall gost || true; fi
   if pidof proxyguard >/dev/null 2>&1; then killall proxyguard || true; fi
   if ip link show wg0 >/dev/null 2>&1; then
     echo "[entrypoint] Bringing down WireGuard (wg-quick down)"
@@ -74,24 +74,21 @@ if [[ -n "$UPSTREAM_PROXY_TYPE" && -n "$UPSTREAM_PROXY_HOST" && -n "$UPSTREAM_PR
   fi
 
   if [[ "$UPSTREAM_PROXY_TYPE" == "socks5" ]]; then
-    REDSOCKS_PORT=12345
-    REDSOCKS_AUTH=""
+    GOST_LOCAL_PORT=51821
+    # Construye la URL del proxy upstream con auth opcional
     if [[ -n "$UPSTREAM_PROXY_USER" && -n "$UPSTREAM_PROXY_PASSWORD" ]]; then
-      REDSOCKS_AUTH="login = \"$UPSTREAM_PROXY_USER\"; password = \"$UPSTREAM_PROXY_PASSWORD\";"
+      GOST_UPSTREAM="socks5://$UPSTREAM_PROXY_USER:$UPSTREAM_PROXY_PASSWORD@$UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT"
+    else
+      GOST_UPSTREAM="socks5://$UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT"
     fi
-    cat > /etc/redsocks.conf <<RCEOF
-base { log_debug = off; log_info = on; daemon = off; redirector = iptables; }
-redsocks {
-  local_ip = 127.0.0.1; local_port = $REDSOCKS_PORT;
-  ip = $UPSTREAM_PROXY_HOST; port = $UPSTREAM_PROXY_PORT; type = socks5;
-  $REDSOCKS_AUTH
-}
-RCEOF
-    echo "[entrypoint] Iniciando redsocks en 127.0.0.1:$REDSOCKS_PORT"
-    redsocks -c /etc/redsocks.conf &
+    echo "[entrypoint] Iniciando gost: UDP 127.0.0.1:$GOST_LOCAL_PORT → SOCKS5 $UPSTREAM_PROXY_HOST:$UPSTREAM_PROXY_PORT → $WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT"
+    gost -L="udp://:$GOST_LOCAL_PORT/$WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT" -F="$GOST_UPSTREAM" &
     sleep 1
-    iptables -t nat -A OUTPUT -p udp -d "$WG_ENDPOINT_HOST" --dport "$WG_ENDPOINT_PORT" -j REDIRECT --to-port "$REDSOCKS_PORT"
-    echo "[entrypoint] Regla iptables: UDP $WG_ENDPOINT_HOST:$WG_ENDPOINT_PORT → 127.0.0.1:$REDSOCKS_PORT"
+    # Apunta el Endpoint de WireGuard al listener UDP local de gost
+    TMPCONF=$(mktemp /tmp/wg0-proxied.XXXXXX.conf)
+    sed "s|Endpoint\s*=.*|Endpoint = 127.0.0.1:$GOST_LOCAL_PORT|" "$WG_CONFIG_PATH" > "$TMPCONF"
+    WG_CONFIG_PATH="$TMPCONF"
+    echo "[entrypoint] Config WireGuard modificado: Endpoint → 127.0.0.1:$GOST_LOCAL_PORT"
 
   elif [[ "$UPSTREAM_PROXY_TYPE" == "http" ]]; then
     PG_LOCAL_PORT=51821

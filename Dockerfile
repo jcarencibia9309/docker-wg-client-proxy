@@ -11,9 +11,23 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/reposi
       tini \
       tinyproxy \
       microsocks \
-      redsocks \
       tzdata \
-      ca-certificates
+      ca-certificates \
+      curl
+
+# Instala gost (forwarder UDP local → SOCKS5/HTTP upstream)
+ARG GOST_VERSION=2.11.5
+RUN ARCH=$(uname -m) \
+    && case "$ARCH" in \
+         x86_64)  GOST_ARCH=amd64 ;; \
+         aarch64) GOST_ARCH=arm64 ;; \
+         armv7l)  GOST_ARCH=armv7 ;; \
+         *) echo "Arquitectura no soportada: $ARCH" && exit 1 ;; \
+       esac \
+    && curl -fsSL -o /tmp/gost.gz "https://github.com/ginuerzh/gost/releases/download/v${GOST_VERSION}/gost-linux-${GOST_ARCH}-${GOST_VERSION}.gz" \
+    && gunzip /tmp/gost.gz \
+    && mv /tmp/gost /usr/local/bin/gost \
+    && chmod +x /usr/local/bin/gost
 
 # Compila proxyguard (UDP-over-HTTP CONNECT para proxy upstream de tipo HTTP)
 RUN apk add --no-cache go git \

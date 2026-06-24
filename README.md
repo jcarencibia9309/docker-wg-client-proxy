@@ -44,7 +44,7 @@ These variables let WireGuard connect to its endpoint *through* an upstream prox
 - `UPSTREAM_PROXY_PORT`: port of the upstream proxy.
 - `UPSTREAM_PROXY_USER`, `UPSTREAM_PROXY_PASSWORD` (optional): credentials for the upstream proxy.
 
-> **Note — `socks5` mode**: uses [redsocks](https://github.com/darkk/redsocks) to transparently redirect the WireGuard UDP packets through a SOCKS5 proxy via `UDP ASSOCIATE`. The upstream SOCKS5 server must support UDP ASSOCIATE.
+> **Note — `socks5` mode**: uses [gost](https://github.com/ginuerzh/gost) to tunnel WireGuard's UDP packets through the upstream SOCKS5 proxy via `UDP ASSOCIATE`. The upstream SOCKS5 server **must support UDP ASSOCIATE** (e.g. sing-box, shadowsocks, dante with UDP). The local WireGuard `Endpoint` is dynamically rewritten to point to gost's local listener.
 >
 > **Note — `http` mode**: uses [proxyguard](https://codeberg.org/eduVPN/proxyguard) to tunnel WireGuard UDP over an HTTP CONNECT proxy (TCP). This requires a compatible server-side proxyguard instance listening on the WireGuard endpoint.
 
